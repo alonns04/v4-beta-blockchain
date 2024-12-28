@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Real-time Transcript Hash Calculator</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        .card {
+            flex: 1 0 16%; /* Ajusta el ancho de las tarjetas para que entren 6 en una fila */
+            margin: 10px;
+        }
+        .card-body {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        @media (max-width: 1200px) {
+            .card {
+                flex: 1 0 19%; /* Ajusta el ancho de las tarjetas para que entren 5 en una fila */
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h1 class="mt-5">Institución</h1>
+        <div class="form-group">
+            <label for="institution_private_key">Clave Privada de la Institución:</label>
+            <textarea class="form-control" id="institution_private_key" name="institution_private_key"
+                oninput="generateInstitutionPublicKey()"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="institution_public_key">Clave Pública de la Institución:</label>
+            <textarea class="form-control" id="institution_public_key" name="institution_public_key"
+                readonly></textarea>
+        </div>
+
+        <button class="btn btn-primary mt-4" onclick="generateNewStudent()">Generar Estudiante</button>
+
+        <div id="students-container" class="d-flex flex-wrap mt-5">
+            <!-- Aquí se agregarán las tarjetas de los estudiantes -->
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+        var studentCount = 0;
+
+        function generateKeys() {
+            fetch('/generate_keys')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('institution_private_key').value = data.private_key;
+                    document.getElementById('institution_public_key').value = data.public_key;
+                    generateNewStudent(); // Generar el primer estudiante automáticamente
+                });
+        }
+
+        function generateInstitutionPublicKey() {
+            var privateKey = document.getElementById('institution_private_key').value;
+            fetch('/generate_public_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ private_key: privateKey })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('institution_public_key').value = data.public_key;
+                    calculateStudentHash('student_1', true);
+                });
+        }
+
+        function generateStudentPublicKey(studentId) {
+            var privateKey = document.getElementById(`${studentId}_private_key`).value;
+            fetch('/generate_public_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ private_key: privateKey })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById(`${studentId}_public_key`).value = data.public_key;
+                    calculateStudentHash(studentId, false);
+                });
+        }
+
+        function generateNewStudent() {
+            studentCount++;
+            var studentId = 'student_' + studentCount;
+            var studentSection = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Estudiante ${studentCount}</h5>
+                        <div class="form-group">
+                            <label for="${studentId}_private_key">Clave Privada:</label>
+                            <textarea class="form-control" id="${studentId}_private_key" name="${studentId}_private_key" oninput="generateDynamicPublicKey('${studentId}')"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_public_key">Clave Pública:</label>
+                            <textarea class="form-control" id="${studentId}_public_key" name="${studentId}_public_key" readonly></textarea>
+                        </div>
+                        <p class="mt-2">Hash del Bloque: <span id="${studentId}_block_hash_output"></span></p>
+                        <p class="mt-2">Previous Hash: <span id="${studentId}_previous_hash_output"></span></p>
+                        <div class="form-group">
+                            <label for="${studentId}_name">Name:</label>
+                            <input type="text" class="form-control" id="${studentId}_name" name="${studentId}_name" oninput="calculateStudentHash('${studentId}', false)">
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_dni">DNI:</label>
+                            <input type="text" class="form-control" id="${studentId}_dni" name="${studentId}_dni" oninput="calculateStudentHash('${studentId}', false)">
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_institution">Institution:</label>
+                            <input type="text" class="form-control" id="${studentId}_institution" name="${studentId}_institution" oninput="calculateStudentHash('${studentId}', false)">
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_courses">Courses (JSON format):</label>
+                            <textarea class="form-control" id="${studentId}_courses" name="${studentId}_courses" oninput="calculateStudentHash('${studentId}', false)"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_issue_date">Issue Date:</label>
+                            <input type="text" class="form-control" id="${studentId}_issue_date" name="${studentId}_issue_date" oninput="calculateStudentHash('${studentId}', false)">
+                        </div>
+                        <p class="mt-2">Hash del Transcript: <span id="${studentId}_hash_output"></span></p>
+                        <div class="form-group">
+                            <label for="${studentId}_student_signature">Firma del Estudiante:</label>
+                            <textarea class="form-control is-valid" id="${studentId}_student_signature" name="${studentId}_student_signature" oninput="verifySignature('${studentId}', 'student')"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="${studentId}_institute_signature">Firma de la Institución:</label>
+                            <textarea class="form-control is-valid" id="${studentId}_institute_signature" name="${studentId}_institute_signature" oninput="verifySignature('${studentId}', 'institute')"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('students-container').insertAdjacentHTML('beforeend', studentSection);
+
+            fetch('/generate_keys')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById(`${studentId}_private_key`).value = data.private_key;
+                    document.getElementById(`${studentId}_public_key`).value = data.public_key;
+                    calculateStudentHash(studentId, false);
+                });
+        }
+
+        function generateDynamicPublicKey(studentId) {
+            var privateKey = document.getElementById(`${studentId}_private_key`).value;
+            fetch('/generate_public_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ private_key: privateKey })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById(`${studentId}_public_key`).value = data.public_key;
+                    calculateStudentHash(studentId, false);
+                });
+        }
+
+        function calculateStudentHash(studentId, modification_institute_key) {
+            var formData = {
+                name: document.getElementById(`${studentId}_name`).value,
+                dni: document.getElementById(`${studentId}_dni`).value,
+                institution: document.getElementById(`${studentId}_institution`).value,
+                courses: JSON.parse(document.getElementById(`${studentId}_courses`).value || '{}'),
+                issue_date: document.getElementById(`${studentId}_issue_date`).value,
+                student_private_key: document.getElementById(`${studentId}_private_key`).value,
+                student_public_key: document.getElementById(`${studentId}_public_key`).value,
+                institution_private_key: document.getElementById('institution_private_key').value,
+                institution_public_key: document.getElementById('institution_public_key').value,
+                modification_institute_key: modification_institute_key
+            };
+            socket.emit('submit_data', { ...formData, studentId });
+        }
+
+        function verifySignature(studentId, type) {
+            var signature = document.getElementById(`${studentId}_${type}_signature`).value;
+            socket.emit('verify_signature', { studentId, type, signature });
+        }
+
+        socket.on('hash_result', function (data) {
+            document.getElementById(`${data.studentId}_hash_output`).innerText = data.hash;
+            document.getElementById(`${data.studentId}_block_hash_output`).innerText = data.block_hash;
+            document.getElementById(`${data.studentId}_previous_hash_output`).innerText = data.previous_hash;
+            document.getElementById(`${data.studentId}_student_signature`).value = data.student_signature;
+            document.getElementById(`${data.studentId}_institute_signature`).value = data.institute_signature;
+        });
+
+        socket.on('verify_signature_result', function (data) {
+            var element = document.getElementById(`${data.studentId}_${data.type}_signature`);
+            if (data.valid) {
+                element.classList.remove('is-invalid');
+                element.classList.add('is-valid');
+            } else {
+                element.classList.remove('is-valid');
+                element.classList.add('is-invalid');
+            }
+        });
+
+        window.onload = generateKeys;
+    </script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
