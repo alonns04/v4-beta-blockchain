@@ -23,7 +23,24 @@ Este proyecto implementa un sistema de verificación de diplomas y analíticos u
    ```bash
     python app.py
 
+## Descripción técnica
 
+El analítico del estudiante estaría formado por:
+Nombre: String
+DNI: String (20 carácteres relleno de ceros)
+Institución: String (nombre de la universidad emisora)
+Materias: Dict, { "materia_1": {"codigo": "00342", "nombre": "Matemática", "nota": 8.9, "fecha": "2023-03-01"}, "materia_2": {...} ... }
+Promedio: Float, promedio redondeado de dos dígitos después del punto
+Fecha de emisión: Datetime
+
+La blockchain almacena 6 datos:
+Index: Int, comienza desde el 1
+Hash Previo:  SHA3_256 hexadecimal, hash del bloque previo
+Hash Analítico: SHA3_256 hexadecimal, hash del analítico
+Firma del estudiante: pss hexadecimal, firma con su clave privada sobre el hash del analítico
+Firma de la institución: pss hexadecimal, firma con su clave privada sobre la firma del estudiante.
+Hash del bloque: SHA3_256 hexadecimal, concatenación: f"{Index}{Hash Previo}{Hash Analítico}{Firma del estudiante}{Firma de la institución}"
+      
 ### Funcionalidades
 
 - **Generación de claves**: Los usuarios (instituciones y estudiantes) pueden generar sus propias claves públicas y privadas.
