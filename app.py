@@ -47,10 +47,16 @@ def generate_public_key():
 @app.route('/transcript', methods=['GET'])
 def get_transcript():
     student_id = request.args.get('studentId')
+    print(f"Received student_id: {student_id}")  # Línea de depuración
+    print(f"Available student IDs: {list(student_transcripts.keys())}")  # Línea de depuración
     if not student_id:
         return jsonify({'error': 'Student ID is required'}), 400
-    if student_id in student_transcripts:
-        transcript = student_transcripts[student_id]
+    
+    formatted_student_id = f"student_{student_id}"
+    if formatted_student_id in student_transcripts:
+        transcript = student_transcripts[formatted_student_id].copy()
+        transcript.pop('student_signature', None)
+        transcript.pop('institute_signature', None)
         transcript_json = json.dumps(transcript, sort_keys=False)
         return Response(transcript_json, mimetype='application/json')
     else:

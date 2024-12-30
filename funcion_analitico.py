@@ -9,7 +9,8 @@ def create_transcript(student_name, student_dni, institution_name, courses, issu
     # Calcular el promedio de las notas
     total_notas = sum(course['nota'] for course in courses.values())
     cantidad_materias = len(courses)
-    promedio = total_notas / cantidad_materias if cantidad_materias > 0 else 0
+    promedio = float(total_notas / cantidad_materias) if cantidad_materias > 0 else 0
+    promedio = round(promedio, 2)
     
     transcript = {
         "name": student_name,
