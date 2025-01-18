@@ -9,14 +9,13 @@ class Blockchain:
     def __init__(self):
         self.chain = []  # Comienza la cadena vacía
 
-    def add_block(self, hash_analitico, student_signature, institute_signature):
+    def add_block(self, transcript_hash, student_signature, institute_signature):
         if not self.chain:  # Crear bloque génesis
             empty_hash = SHA3_256.new(b"").hexdigest()
-            new_block = Block(1, empty_hash, hash_analitico, student_signature, institute_signature)
+            new_block = Block(1, empty_hash, transcript_hash, student_signature, institute_signature)
         else:
             previous_block = self.chain[-1]
-            print(previous_block.hash)
-            new_block = Block(len(self.chain) + 1, previous_block.hash, hash_analitico, student_signature, institute_signature)
+            new_block = Block(len(self.chain) + 1, previous_block.hash, transcript_hash, student_signature, institute_signature)
         
         self.chain.append(new_block)
 
@@ -46,11 +45,11 @@ class Blockchain:
                 return i_block
         return False
 
-    def modify_chain(self, index, hash_analitico, student_signature, institute_signature):
+    def modify_chain(self, index, transcript_hash, student_signature, institute_signature):
         var_block = self.block_by_index(index)
         if not var_block:
             return False
-        var_block.hash_analitico = hash_analitico
+        var_block.transcript_hash = transcript_hash
         var_block.calculate_hash_block()
         var_block.student_signature = student_signature
         var_block.institute_signature = institute_signature
@@ -64,3 +63,4 @@ class Blockchain:
 
     def reset_chain(self):
         self.chain = []  # Reiniciar la cadena
+    

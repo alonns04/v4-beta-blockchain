@@ -1,7 +1,6 @@
 import os
 from Crypto.Signature import pss
 from Crypto.Hash import SHA3_256
-from Crypto.PublicKey import RSA
 import json
 
 def sing_function(document, private_key):

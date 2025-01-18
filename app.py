@@ -47,16 +47,10 @@ def generate_public_key():
 @app.route('/transcript', methods=['GET'])
 def get_transcript():
     student_id = request.args.get('studentId')
-    print(f"Received student_id: {student_id}")  # Línea de depuración
-    print(f"Available student IDs: {list(student_transcripts.keys())}")  # Línea de depuración
     if not student_id:
         return jsonify({'error': 'Student ID is required'}), 400
-    
-    formatted_student_id = f"student_{student_id}"
-    if formatted_student_id in student_transcripts:
-        transcript = student_transcripts[formatted_student_id].copy()
-        transcript.pop('student_signature', None)
-        transcript.pop('institute_signature', None)
+    if student_id in student_transcripts:
+        transcript = student_transcripts[student_id]
         transcript_json = json.dumps(transcript, sort_keys=False)
         return Response(transcript_json, mimetype='application/json')
     else:
@@ -135,11 +129,12 @@ def handle_submit_data(data):
 
     blockchain.recalculate_chain()
 
+
     # Emitir información actualizada del bloque modificado
     for block in blockchain.chain:
         info = block.info()
         emit('hash_result', {
-            'hash': info["hash_analitico"],
+            'hash': info["transcript_hash"],
             'studentId': f'student_{block.index}',
             'block_hash': info['hash'],
             'previous_hash': info['previous_hash'],
@@ -184,7 +179,16 @@ def handle_verify_signature(data):
 @app.route('/blockchain', methods=['GET'])
 def get_blockchain():
     chain_data = [block.info() for block in blockchain.chain]
-    return jsonify(chain_data)
+
+    # Print each block's info in the console
+    for block in chain_data:
+        print(block)
+
+    # Return JSON without sorting the keys
+    return app.response_class(
+        response=json.dumps(chain_data, indent=4, sort_keys=False),
+        mimetype='application/json'
+    )
 
 @app.route('/verify_blockchain', methods=['GET'])
 def verify_blockchain():
